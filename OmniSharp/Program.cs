@@ -57,7 +57,7 @@ namespace OmniSharp
             }
 
             StartServer(solutionPath, port, verbose);
-            
+
         }
 
         private static void StartServer(string solutionPath, int port, bool verbose)
@@ -85,7 +85,7 @@ namespace OmniSharp
                     {
                         Thread.Sleep(1000);
                     }
-                    
+
                     Console.WriteLine("Quit gracefully");
                     nancyHost.Stop();
                 }
@@ -93,8 +93,7 @@ namespace OmniSharp
             }
             catch (IOException)
             {
-                Console.WriteLine("Detected an OmniSharp instance already running on port " + port + ". Press a key.");
-                Console.ReadKey();
+                Console.WriteLine("Detected an OmniSharp instance already running on port " + port);
             }
         }
 
