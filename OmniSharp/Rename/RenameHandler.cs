@@ -2,7 +2,7 @@
 using System.Linq;
 using ICSharpCode.NRefactory.CSharp;
 using ICSharpCode.NRefactory.CSharp.Resolver;
-using ICSharpCode.NRefactory.CSharp.TypeSystem;
+using OmniSharp.Configuration;
 using OmniSharp.FindUsages;
 using OmniSharp.Parser;
 using OmniSharp.Refactoring;
@@ -15,12 +15,14 @@ namespace OmniSharp.Rename
         private readonly ISolution _solution;
         private readonly BufferParser _bufferParser;
         private readonly FindUsagesHandler _findUsagesHandler;
+		private readonly OmniSharpConfiguration _config;
 
-        public RenameHandler(ISolution solution, BufferParser bufferParser)
+        public RenameHandler(ISolution solution, BufferParser bufferParser, OmniSharpConfiguration config)
         {
             _solution = solution;
             _bufferParser = bufferParser;
             _findUsagesHandler = new FindUsagesHandler(bufferParser, solution);
+            _config = config;
         }
 
         public RenameResponse Rename(RenameRequest req)
@@ -30,7 +32,6 @@ namespace OmniSharp.Rename
             var sourceNode = syntaxTree.GetNodeAt(req.Line, req.Column);
             if(sourceNode == null)
                 return new RenameResponse();
-            var originalName = sourceNode.GetText();
 
             IEnumerable<AstNode> nodes = _findUsagesHandler.FindUsageNodes(req).ToArray();
 
@@ -39,7 +40,7 @@ namespace OmniSharp.Rename
             var modfiedFiles = new List<ModifiedFileResponse>();
             response.Changes = modfiedFiles;
 
-            foreach (IGrouping<string, AstNode> groupedNodes in nodes.GroupBy(n => n.GetRegion().FileName.FixPath()))
+            foreach (IGrouping<string, AstNode> groupedNodes in nodes.GroupBy(n => n.GetRegion().FileName.LowerCaseDriveLetter()))
             {
                 string fileName = groupedNodes.Key;
                 OmniSharpRefactoringContext context;
@@ -57,13 +58,12 @@ namespace OmniSharp.Rename
                 }
                 string modifiedBuffer = null;
 
-                var lastToFirstNodes = groupedNodes.Where(n => n.GetText() == originalName)
-                                                   .OrderByDescending(n => n.EndLocation.Line)
+                var lastToFirstNodes = groupedNodes.OrderByDescending(n => n.EndLocation.Line)
                                                    .ThenByDescending(n => n.EndLocation.Column);
 
                 foreach (var node in lastToFirstNodes)
                 {
-                    using (var script = new OmniSharpScript(context))
+                    using (var script = new OmniSharpScript(context, _config))
                     {
                         script.Rename(node, req.RenameTo);
                         modifiedBuffer = script.CurrentDocument.Text;
@@ -82,7 +82,7 @@ namespace OmniSharp.Rename
                     response.Changes = modfiedFiles;
 
                     _bufferParser.ParsedContent(modifiedBuffer, fileName);
-                    _solution.GetFile(fileName).Update(modifiedBuffer);
+                    _solution.ProjectContainingFile(fileName).UpdateFile (fileName, modifiedBuffer);
                 }
             }
 

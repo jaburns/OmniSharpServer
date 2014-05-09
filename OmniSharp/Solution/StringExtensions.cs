@@ -1,6 +1,10 @@
 ﻿using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using System.Diagnostics;
+using OmniSharp.Common;
+using OmniSharp.Configuration;
 
 namespace OmniSharp.Solution
 {
@@ -16,21 +20,20 @@ namespace OmniSharp.Solution
             return Regex.Replace(stringToTrim, @"\s+", " ");
         }
 
-        /// <summary>
-        /// Changes a path's directory separator from Windows-style to the native
-        /// separator if necessary
-        /// </summary>
-        /// <param name="path"></param>
-        /// <returns></returns>
-        public static string FixPath(this string path)
+        public static string LowerCaseDriveLetter(this string path)
         {
-            if (Path.DirectorySeparatorChar != '\\')
-                path = path.Replace('\\', Path.DirectorySeparatorChar);
-            else
-                // TODO: fix hack - vim sends drive letter as uppercase. usually lower case in project files
-                return path.Replace(@"C:\", @"c:\").Replace(@"D:\", @"d:\");
-			return path;
+        	return path.Replace(@"C:\", @"c:\").Replace(@"D:\", @"d:\");
         }
+
+		public static string ForceWindowsPathSeparator(this string path)
+		{
+			return path.Replace ('/', '\\');
+		}
+
+		public static string ForceNativePathSeparator(this string path)
+		{
+			return path.Replace ('\\', Path.DirectorySeparatorChar);
+		}
 
         /// <summary>
         /// Returns the relative path of a file to another file
@@ -40,7 +43,55 @@ namespace OmniSharp.Solution
         /// <returns></returns>
         public static string GetRelativePath(this string path, string pathToMakeRelative)
         {
-            return new Uri(path).MakeRelativeUri(new Uri(pathToMakeRelative)).ToString().Replace("/", @"\");
+            return new Uri(path).MakeRelativeUri(new Uri(pathToMakeRelative)).ToString().ForceWindowsPathSeparator();
+        }
+
+        public static string ApplyPathReplacementsForServer(this string path)
+        {
+            path = ApplyCygpathForServer(path);
+
+            foreach (var pathReplacement in ConfigurationLoader.Config.PathReplacements)
+            {
+                path = path.Replace(pathReplacement.From, pathReplacement.To);
+            }
+
+            return path;
+        }
+
+        public static string ApplyPathReplacementsForClient(this string path)
+        {
+            path = ApplyCygpathForClient(path);
+
+            foreach (var pathReplacement in ConfigurationLoader.Config.PathReplacements)
+            {
+                path = path.Replace(pathReplacement.To, pathReplacement.From);
+            }
+
+            return path;
+        }
+
+        private static string ApplyCygpathForServer(string path)
+        {
+            var config = ConfigurationLoader.Config;
+
+            if (config.UseCygpath.GetValueOrDefault(config.ClientPathMode == PathMode.Cygwin))
+            {
+                path = CygPathWrapper.GetCygpath(path, config.ServerPathMode.Value);
+            }
+
+            return path;
+        }
+
+        private static string ApplyCygpathForClient(string path)
+        {
+            var config = ConfigurationLoader.Config;
+
+            if (config.UseCygpath.GetValueOrDefault(config.ClientPathMode == PathMode.Cygwin))
+            {
+                path = CygPathWrapper.GetCygpath(path, config.ClientPathMode.GetValueOrDefault(PathMode.Unix));
+            }
+
+            return path;
         }
     }
 }

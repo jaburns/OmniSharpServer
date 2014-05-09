@@ -11,7 +11,11 @@ namespace OmniSharp.Common
         public string FileName
         {
             get { return _fileName; }
-            set { _fileName = value.FixPath(); }
+            set
+            {
+                _fileName = value.ApplyPathReplacementsForServer().LowerCaseDriveLetter();
+            }
         }
     }
 }
+            

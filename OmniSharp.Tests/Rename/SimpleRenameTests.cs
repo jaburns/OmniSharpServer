@@ -1,5 +1,6 @@
-﻿using System.Linq;
+using System.Linq;
 using NUnit.Framework;
+using OmniSharp.Configuration;
 using OmniSharp.Parser;
 using OmniSharp.Rename;
 using Should;
@@ -19,7 +20,7 @@ namespace OmniSharp.Tests.Rename
                 .Build();
             
             var bufferParser = new BufferParser(solution);
-            var renameHandler = new RenameHandler(solution, bufferParser);
+            var renameHandler = new RenameHandler(solution, bufferParser, new OmniSharpConfiguration());
             var request = new RenameRequest
                 {
                     Buffer = buffer,
@@ -255,6 +256,64 @@ public class Handler
                 {
                     float testing;
                     testing = testing * 10;
+                }
+            }");
+        }
+
+        [Test]
+        public void Should_rename_generic_field()
+        {
+            Rename(@"
+            using System.Collections.Generic;
+
+            class SampleClass
+            {
+                public List<string> Test$Field = new List<string>();
+
+                public SampleClass()
+                {
+                    TestField.Add(""value1"");
+                }
+            }", "Renamed")
+              .ShouldEqual(@"
+            using System.Collections.Generic;
+
+            class SampleClass
+            {
+                public List<string> Renamed = new List<string>();
+
+                public SampleClass()
+                {
+                    Renamed.Add(""value1"");
+                }
+            }");
+        }
+
+        [Test]
+        public void Should_not_rename_wrong_overloads()
+        {
+            Rename(@"
+            class OverloadTest
+            {
+                public void Overload$edFunction(int a)
+                {
+                    OverloadedFunction(""test"");
+                }
+                public void OverloadedFunction(string str)
+                {
+                    OverloadedFunction(1);
+                }
+            }", "IntOverload")
+            .ShouldEqual(@"
+            class OverloadTest
+            {
+                public void IntOverload(int a)
+                {
+                    OverloadedFunction(""test"");
+                }
+                public void OverloadedFunction(string str)
+                {
+                    IntOverload(1);
                 }
             }");
         }

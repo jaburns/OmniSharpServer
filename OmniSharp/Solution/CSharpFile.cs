@@ -26,23 +26,14 @@ namespace OmniSharp.Solution
             Parse(project, fileName, source);
         }
 
-        private void Parse(IProject project, string fileName, string source)
+        public void Parse(IProject project, string fileName, string source)
         {
-            Console.WriteLine("Loading " + fileName);
             this.FileName = fileName;
             this.Content = new StringTextSource(source);
             this.Document = new StringBuilderDocument(this.Content);
             this.Project = project;
             CSharpParser p = project.CreateParser();
             this.SyntaxTree = p.Parse(Content.CreateReader(), fileName);
-            if (p.HasErrors)
-            {
-                Console.WriteLine("Error parsing " + fileName + ":");
-                foreach (var error in p.Errors)
-                {
-                    Console.WriteLine("  " + error.Region + " " + error.Message);
-                }
-            }
             this.ParsedFile = this.SyntaxTree.ToTypeSystem();
             if(this.Project.ProjectContent != null)
                 this.Project.ProjectContent.AddOrUpdateFiles(this.ParsedFile);
@@ -50,10 +41,6 @@ namespace OmniSharp.Solution
 
         protected IProject Project { get; set; }
 
-        public void Update(string source)
-        {
-            this.Content = new StringTextSource(source);
-            Parse(Project, this.FileName, source);
-        }
+
     }
 }
